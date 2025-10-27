@@ -158,9 +158,20 @@ La aplicación es instalable como PWA:
 
 ### Vercel (Recomendado)
 
-1. Conecta tu repositorio a Vercel
-2. Configura las variables de entorno
-3. Deploy automático en cada push
+1. **Conecta el repositorio:**
+   - Ve a [vercel.com](https://vercel.com)
+   - Importa el repositorio: `https://github.com/makebyjordan/qr1.git`
+
+2. **Configura las variables de entorno:**
+   ```
+   DATABASE_URL=postgresql://usuario:password@host:5432/database
+   NEXT_PUBLIC_APP_NAME=Sistema de Inventario
+   NEXT_PUBLIC_BASE_URL=https://tu-dominio.vercel.app
+   ```
+
+3. **Deploy automático:**
+   - Cada push a `main` despliega automáticamente
+   - URL del proyecto: https://github.com/makebyjordan/qr1
 
 ### Manual
 
@@ -168,6 +179,14 @@ La aplicación es instalable como PWA:
 npm run build
 npm run start
 ```
+
+### Base de Datos en Producción
+
+Para producción, recomendamos usar **Vercel Postgres**:
+1. En tu proyecto de Vercel, ve a Storage
+2. Crea una nueva base de datos Postgres
+3. Copia la `DATABASE_URL` a las variables de entorno
+4. Ejecuta las migraciones: `npx prisma migrate deploy`
 
 ## 🤝 Contribuir
 
