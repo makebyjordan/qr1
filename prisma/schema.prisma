@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum for stock movement types
+enum StockMovementType {
+  ENTRY
+  SALE
+  ADJUSTMENT
+}
+
+// Product model
+model Product {
+  id           String   @id @default(cuid())
+  barcode      String   @unique
+  title        String
+  name         String
+  costPrice    Decimal  @db.Decimal(10, 2)
+  salePrice    Decimal  @db.Decimal(10, 2)
+  taxRate      Decimal  @db.Decimal(5, 2)
+  currentStock Int      @default(0)
+  minStock     Int      @default(10)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  stockMovements StockMovement[]
+  sales          Sale[]
+
+  // Indexes
+  @@index([barcode])
+  @@index([currentStock])
+}
+
+// Stock movement model for tracking inventory changes
+model StockMovement {
+  id         String            @id @default(cuid())
+  productId  String
+  type       StockMovementType
+  quantity   Int
+  unitPrice  Decimal           @db.Decimal(10, 2)
+  totalValue Decimal           @db.Decimal(10, 2)
+  notes      String?
+  createdAt  DateTime          @default(now())
+  createdBy  String?
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([createdAt])
+  @@index([productId])
+}
+
+// Sales model for tracking individual sales
+model Sale {
+  id        String   @id @default(cuid())
+  productId String
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  subtotal  Decimal  @db.Decimal(10, 2)
+  taxAmount Decimal  @db.Decimal(10, 2)
+  total     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([createdAt])
+  @@index([productId])
+}

@@ -1,36 +1,194 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📦 Sistema de Inventario con Escaneo QR/Código de Barras
 
-## Getting Started
+Una aplicación web progresiva (PWA) completa para gestión de inventario mediante escaneo de códigos QR y códigos de barras. Permite registrar productos nuevos al escanear, actualizar stock automáticamente, y realizar ventas restando unidades del inventario en tiempo real.
 
-First, run the development server:
+## ✨ Características Principales
+
+- 📱 **Escaneo QR/Códigos de Barras**: Usa la cámara del dispositivo para leer múltiples formatos
+- 🏪 **Gestión de Inventario**: Registro automático de productos y control de stock
+- 💰 **Punto de Venta**: Procesamiento de ventas con cálculos automáticos de IVA
+- 📊 **Dashboard en Tiempo Real**: Métricas de inventario, ventas y alertas de stock bajo
+- 📱 **PWA**: Instalable en dispositivos móviles con funcionalidad offline
+- 🔄 **Historial Completo**: Seguimiento de todos los movimientos de inventario
+
+## 🛠️ Stack Tecnológico
+
+### Frontend
+- **Next.js 15** con App Router
+- **React 18** con TypeScript
+- **Tailwind CSS** para estilos
+- **shadcn/ui** para componentes UI
+- **html5-qrcode** para escaneo de códigos
+
+### Backend
+- **Next.js API Routes** (serverless)
+- **Prisma ORM** con PostgreSQL
+- **Zod** para validación de datos
+- **React Hook Form** para formularios
+
+### Herramientas
+- **Vercel** para deployment
+- **ESLint** y **Prettier** para código limpio
+
+## 🚀 Inicio Rápido
+
+### 1. Clonar e Instalar
+
+```bash
+cd inventory-app
+npm install
+```
+
+### 2. Configurar Base de Datos
+
+Consulta `DATABASE_SETUP.md` para instrucciones detalladas. Opciones disponibles:
+- PostgreSQL local
+- Vercel Postgres (recomendado)
+- Docker PostgreSQL
+
+### 3. Variables de Entorno
+
+Crea `.env.local`:
+
+```env
+DATABASE_URL="postgresql://usuario:password@localhost:5432/inventory_db"
+NEXT_PUBLIC_APP_NAME="Sistema de Inventario"
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+```
+
+### 4. Ejecutar Migraciones
+
+```bash
+npx prisma migrate dev --name init
+npx prisma generate
+```
+
+### 5. Iniciar Desarrollo
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visita [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📱 Funcionalidades
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Dashboard
+- Métricas en tiempo real
+- Alertas de stock bajo
+- Resumen de ventas del día
+- Valor total del inventario
 
-## Learn More
+### Gestión de Inventario
+- Escaneo para agregar productos nuevos
+- Actualización automática de stock
+- Búsqueda manual de productos
+- Control de stock mínimo
 
-To learn more about Next.js, take a look at the following resources:
+### Punto de Venta
+- Escaneo rápido para ventas
+- Cálculo automático de IVA
+- Validación de stock disponible
+- Historial de transacciones
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Reportes
+- Movimientos de inventario
+- Historial de ventas
+- Filtros por fecha y tipo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🏗️ Estructura del Proyecto
 
-## Deploy on Vercel
+```
+inventory-app/
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── dashboard/          # Dashboard principal
+│   │   ├── inventory/          # Gestión de inventario
+│   │   ├── sales/              # Punto de venta
+│   │   └── api/                # API Routes
+│   ├── components/             # Componentes React
+│   │   ├── ui/                 # shadcn/ui components
+│   │   ├── scanner/            # Componentes de escaneo
+│   │   ├── forms/              # Formularios
+│   │   └── dashboard/          # Componentes del dashboard
+│   └── lib/                    # Utilidades y configuración
+├── prisma/                     # Esquema de base de datos
+└── public/                     # Archivos estáticos
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🗄️ Esquema de Base de Datos
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Modelos Principales
+
+- **Product**: Información del producto (código, precios, stock)
+- **StockMovement**: Historial de movimientos de inventario
+- **Sale**: Registro de ventas realizadas
+
+### Relaciones
+- Product → StockMovement (1:N)
+- Product → Sale (1:N)
+
+## 🔧 Scripts Disponibles
+
+```bash
+npm run dev          # Servidor de desarrollo
+npm run build        # Build para producción
+npm run start        # Servidor de producción
+npm run lint         # Linter
+npm run type-check   # Verificación de tipos
+```
+
+## 📱 PWA (Progressive Web App)
+
+La aplicación es instalable como PWA:
+- Funciona offline (básico)
+- Acceso a cámara para escaneo
+- Instalable en dispositivos móviles
+- Notificaciones push (futuro)
+
+## 🔒 Seguridad
+
+- Validación con Zod en frontend y backend
+- Transacciones atómicas con Prisma
+- Sanitización automática de inputs
+- Headers de seguridad configurados
+- Variables sensibles en `.env.local`
+
+## 🚀 Deployment
+
+### Vercel (Recomendado)
+
+1. Conecta tu repositorio a Vercel
+2. Configura las variables de entorno
+3. Deploy automático en cada push
+
+### Manual
+
+```bash
+npm run build
+npm run start
+```
+
+## 🤝 Contribuir
+
+1. Fork el proyecto
+2. Crea una rama para tu feature
+3. Commit tus cambios
+4. Push a la rama
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT.
+
+## 🆘 Soporte
+
+Si encuentras algún problema:
+1. Revisa `DATABASE_SETUP.md`
+2. Verifica las variables de entorno
+3. Consulta los logs del servidor
+4. Abre un issue en GitHub
+
+---
+
+**¡Listo para gestionar tu inventario de manera inteligente! 📦✨**
