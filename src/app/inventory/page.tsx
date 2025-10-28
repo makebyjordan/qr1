@@ -1,13 +1,39 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { QrCode, Package, Plus, Search } from 'lucide-react'
+import { QrCode, Package, Plus, Search, Tag, Building2 } from 'lucide-react'
 
 export default function InventoryPage() {
+  const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking')
+  const [apiStatus, setApiStatus] = useState<'checking' | 'working' | 'error'>('checking')
+
+  useEffect(() => {
+    const checkSystemStatus = async () => {
+      try {
+        // Check database and API by testing the products endpoint
+        const response = await fetch('/api/products?limit=1')
+        if (response.ok) {
+          setDbStatus('connected')
+          setApiStatus('working')
+        } else {
+          setDbStatus('error')
+          setApiStatus('error')
+        }
+      } catch (error) {
+        setDbStatus('error')
+        setApiStatus('error')
+      }
+    }
+
+    checkSystemStatus()
+  }, [])
   return (
     <div className="container mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Inventario</h1>
+        <h1 className="text-3xl font-bold">Sistema de Inventario</h1>
         <div className="flex gap-2">
           <Button asChild>
             <Link href="/inventory/scan">
@@ -48,11 +74,13 @@ export default function InventoryPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Ver todos los productos registrados en el sistema con su información de stock.
+              Ver y gestionar todos los productos en tu inventario con filtros avanzados.
             </p>
-            <Button variant="outline" className="w-full" disabled>
-              <Package className="mr-2 h-4 w-4" />
-              Ver Productos (Próximamente)
+            <Button asChild className="w-full" variant="outline">
+              <Link href="/inventory/products">
+                <Package className="mr-2 h-4 w-4" />
+                Ver Productos
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -60,17 +88,39 @@ export default function InventoryPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Búsqueda Manual
+              <Tag className="h-5 w-5" />
+              Gestión de Categorías
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Buscar productos por nombre, código de barras o categoría.
+              Crear y gestionar categorías para organizar tus productos.
             </p>
-            <Button variant="outline" className="w-full" disabled>
-              <Search className="mr-2 h-4 w-4" />
-              Buscar (Próximamente)
+            <Button asChild className="w-full" variant="outline">
+              <Link href="/inventory/categories">
+                <Tag className="mr-2 h-4 w-4" />
+                Gestionar Categorías
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Gestión de Proveedores
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Administrar información de proveedores y sus productos asociados.
+            </p>
+            <Button asChild className="w-full" variant="outline">
+              <Link href="/inventory/suppliers">
+                <Building2 className="mr-2 h-4 w-4" />
+                Gestionar Proveedores
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -88,16 +138,38 @@ export default function InventoryPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Base de datos:</span>
-              <span className="text-sm text-yellow-600 font-medium">⚠ Pendiente configuración</span>
+              {dbStatus === 'checking' ? (
+                <span className="text-sm text-blue-600 font-medium">🔄 Verificando...</span>
+              ) : dbStatus === 'connected' ? (
+                <span className="text-sm text-green-600 font-medium">✓ Funcionando</span>
+              ) : (
+                <span className="text-sm text-red-600 font-medium">✗ Error de conexión</span>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">API Routes:</span>
-              <span className="text-sm text-green-600 font-medium">✓ Funcionando</span>
+              {apiStatus === 'checking' ? (
+                <span className="text-sm text-blue-600 font-medium">🔄 Verificando...</span>
+              ) : apiStatus === 'working' ? (
+                <span className="text-sm text-green-600 font-medium">✓ Funcionando</span>
+              ) : (
+                <span className="text-sm text-red-600 font-medium">✗ Error</span>
+              )}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            Para activar todas las funcionalidades, configura la base de datos siguiendo las instrucciones en DATABASE_SETUP.md
-          </p>
+          {dbStatus === 'connected' && apiStatus === 'working' ? (
+            <p className="text-xs text-green-600 mt-4">
+              ✓ Sistema completamente funcional. Todas las características están disponibles.
+            </p>
+          ) : dbStatus === 'error' || apiStatus === 'error' ? (
+            <p className="text-xs text-red-600 mt-4">
+              ✗ Hay problemas de configuración. Verifica la base de datos y las APIs.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-4">
+              🔄 Verificando el estado del sistema...
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

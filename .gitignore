@@ -41,3 +41,18 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Database
+prisma/dev.db
+prisma/dev.db-journal
+*.db
+*.db-journal
+
+# Backup files
+*.backup
+*.swp
+*.swo
+
+# IDE files
+.vscode/
+.idea/

@@ -11,7 +11,9 @@ import { ProductForm } from '@/components/forms/ProductForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { QrCode, Package, Plus } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { QrCode, Package, Plus, Keyboard } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Product {
@@ -29,6 +31,7 @@ export default function ScanPage() {
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null)
   const [showProductForm, setShowProductForm] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState('')
+  const [manualBarcode, setManualBarcode] = useState('')
   const [scannerType, setScannerType] = useState<'optimized' | 'dual' | 'basic' | 'simple'>('optimized') // Default to optimized scanner
 
   const handleScanSuccess = async (barcode: string) => {
@@ -97,10 +100,20 @@ export default function ScanPage() {
     }
   }
 
+  const handleManualEntry = () => {
+    if (!manualBarcode.trim()) {
+      toast.error('Por favor ingresa un código de barras')
+      return
+    }
+    handleScanSuccess(manualBarcode.trim())
+    setManualBarcode('')
+  }
+
   const resetScan = () => {
     setScannedProduct(null)
     setShowProductForm(false)
     setScannedBarcode('')
+    setManualBarcode('')
   }
 
   return (
@@ -134,6 +147,51 @@ export default function ScanPage() {
           </Button>
         </div>
       </div>
+
+      {/* Entrada Manual de Código de Barras */}
+      {!scannedProduct && !showProductForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Keyboard className="h-5 w-5" />
+              Entrada Manual de Código
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Si el código de barras está defectuoso o no se puede escanear, puedes introducir el código numérico manualmente.
+              </p>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="manual-barcode" className="sr-only">
+                    Código de barras
+                  </Label>
+                  <Input
+                    id="manual-barcode"
+                    type="text"
+                    placeholder="Introduce el código de barras manualmente..."
+                    value={manualBarcode}
+                    onChange={(e) => setManualBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleManualEntry()
+                      }
+                    }}
+                  />
+                </div>
+                <Button 
+                  onClick={handleManualEntry}
+                  disabled={!manualBarcode.trim()}
+                >
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Buscar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {scannedProduct && (
         <Card>

@@ -1,227 +1,396 @@
 'use client'
 
-import { useState } from 'react'
-import { ScannerModal } from '@/components/scanner/ScannerModal'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { QrCode, ShoppingCart, Minus, Plus } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Camera, ShoppingCart, Package, Minus, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatCurrency } from '@/lib/utils/currency'
-import { calculateSaleAmounts } from '@/lib/utils/calculations'
+import { BrowserMultiFormatReader } from '@zxing/library'
 
 interface Product {
   id: string
   barcode: string
   title: string
   name: string
-  currentStock: number
+  description?: string
   salePrice: number
-  taxRate: number
+  currentStock: number
+  category?: { id: string; name: string }
+  supplier?: { id: string; name: string }
+}
+
+interface SaleItem {
+  product: Product
+  quantity: number
+  subtotal: number
 }
 
 export default function SalesPage() {
-  const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null)
   const [quantity, setQuantity] = useState(1)
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [saleItems, setSaleItems] = useState<SaleItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
 
-  const handleScanSuccess = async (barcode: string) => {
+  const total = saleItems.reduce((sum, item) => sum + item.subtotal, 0)
+
+  useEffect(() => {
+    return () => {
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset()
+      }
+    }
+  }, [])
+
+  const startScanning = async () => {
     try {
-      const response = await fetch(`/api/products/check?barcode=${encodeURIComponent(barcode)}`)
-      const data = await response.json()
+      setIsScanning(true)
+      const codeReader = new BrowserMultiFormatReader()
+      codeReaderRef.current = codeReader
 
-      if (data.exists && data.product) {
-        setScannedProduct(data.product)
-        setQuantity(1)
-        toast.success('Producto encontrado')
+      const videoInputDevices = await codeReader.listVideoInputDevices()
+      if (videoInputDevices.length === 0) {
+        toast.error('No se encontró cámara')
+        setIsScanning(false)
+        return
+      }
+
+      const selectedDeviceId = videoInputDevices[0].deviceId
+
+      codeReader.decodeFromVideoDevice(selectedDeviceId, videoRef.current!, (result) => {
+        if (result) {
+          const barcode = result.getText()
+          handleBarcodeDetected(barcode)
+          stopScanning()
+        }
+      })
+    } catch (error) {
+      console.error('Error starting camera:', error)
+      toast.error('Error al acceder a la cámara')
+      setIsScanning(false)
+    }
+  }
+
+  const stopScanning = () => {
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset()
+    }
+    setIsScanning(false)
+  }
+
+  const handleBarcodeDetected = async (barcode: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/products/check?barcode=${barcode}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.exists) {
+          setScannedProduct(data.product)
+          setQuantity(1)
+          toast.success(`Producto encontrado: ${data.product.title}`)
+        } else {
+          toast.error('Producto no encontrado en el inventario')
+        }
       } else {
-        toast.error('Producto no encontrado')
+        toast.error('Error al buscar el producto')
       }
     } catch (error) {
-      toast.error('Error al verificar el producto')
-      console.error('Error checking product:', error)
+      console.error('Error fetching product:', error)
+      toast.error('Error al buscar el producto')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity < 1) return
-    if (scannedProduct && newQuantity > scannedProduct.currentStock) {
-      toast.error('Cantidad excede el stock disponible')
-      return
-    }
-    setQuantity(newQuantity)
-  }
-
-  const handleProcessSale = async () => {
+  const handleAddToSale = () => {
     if (!scannedProduct) return
 
-    setIsProcessing(true)
+    if (quantity > scannedProduct.currentStock) {
+      toast.error(`Stock insuficiente. Disponible: ${scannedProduct.currentStock}`)
+      return
+    }
+
+    const existingItemIndex = saleItems.findIndex(item => item.product.id === scannedProduct.id)
+    
+    if (existingItemIndex >= 0) {
+      // Update existing item
+      const newItems = [...saleItems]
+      const newQuantity = newItems[existingItemIndex].quantity + quantity
+      
+      if (newQuantity > scannedProduct.currentStock) {
+        toast.error(`Stock insuficiente. Disponible: ${scannedProduct.currentStock}`)
+        return
+      }
+      
+      newItems[existingItemIndex].quantity = newQuantity
+      newItems[existingItemIndex].subtotal = newQuantity * Number(scannedProduct.salePrice)
+      setSaleItems(newItems)
+    } else {
+      // Add new item
+      const newItem: SaleItem = {
+        product: scannedProduct,
+        quantity: quantity,
+        subtotal: quantity * Number(scannedProduct.salePrice)
+      }
+      setSaleItems([...saleItems, newItem])
+    }
+
+    setScannedProduct(null)
+    setQuantity(1)
+    toast.success('Producto agregado a la venta')
+  }
+
+  const handleRemoveItem = (productId: string) => {
+    setSaleItems(saleItems.filter(item => item.product.id !== productId))
+    toast.success('Producto eliminado de la venta')
+  }
+
+  const handleUpdateQuantity = (productId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      handleRemoveItem(productId)
+      return
+    }
+
+    const newItems = saleItems.map(item => {
+      if (item.product.id === productId) {
+        if (newQuantity > item.product.currentStock) {
+          toast.error(`Stock insuficiente. Disponible: ${item.product.currentStock}`)
+          return item
+        }
+        return {
+          ...item,
+          quantity: newQuantity,
+          subtotal: newQuantity * Number(item.product.salePrice)
+        }
+      }
+      return item
+    })
+    setSaleItems(newItems)
+  }
+
+  const handleCompleteSale = async () => {
+    if (saleItems.length === 0) {
+      toast.error('No hay productos en la venta')
+      return
+    }
+
     try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          barcode: scannedProduct.barcode,
-          quantity,
-        }),
-      })
+      setLoading(true)
+      
+      // Process each item to update stock
+      for (const item of saleItems) {
+        const response = await fetch(`/api/products/${item.product.id}/sell`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            quantity: item.quantity,
+            salePrice: Number(item.product.salePrice)
+          }),
+        })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al procesar la venta')
+        if (!response.ok) {
+          const error = await response.json()
+          toast.error(`Error vendiendo ${item.product.title}: ${error.error}`)
+          return
+        }
       }
 
-      toast.success('Venta procesada exitosamente')
-      setScannedProduct(null)
-      setQuantity(1)
+      toast.success(`Venta completada. Total: €${total.toFixed(2)}`)
+      setSaleItems([])
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al procesar la venta')
+      console.error('Error completing sale:', error)
+      toast.error('Error al completar la venta')
     } finally {
-      setIsProcessing(false)
+      setLoading(false)
     }
   }
 
-  const saleAmounts = scannedProduct 
-    ? calculateSaleAmounts(quantity, Number(scannedProduct.salePrice), Number(scannedProduct.taxRate))
-    : null
-
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 pt-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Punto de Venta</h1>
-        <Button onClick={() => setIsScannerOpen(true)}>
-          <QrCode className="mr-2 h-4 w-4" />
-          Escanear Producto
-        </Button>
+        <h1 className="text-3xl font-bold">Sistema de Ventas</h1>
+        <Badge variant="outline" className="text-lg px-3 py-1">
+          Total: €{total.toFixed(2)}
+        </Badge>
       </div>
 
-      {scannedProduct ? (
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Producto Seleccionado</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Código de Barras</p>
-                <p className="font-mono">{scannedProduct.barcode}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Producto</p>
-                <p className="font-semibold">{scannedProduct.title}</p>
-                <p className="text-sm text-muted-foreground">{scannedProduct.name}</p>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Stock Disponible</p>
-                  <p className="text-lg font-semibold">{scannedProduct.currentStock} unidades</p>
-                </div>
-                <Badge 
-                  variant={scannedProduct.currentStock > 10 ? 'default' : 'destructive'}
-                >
-                  {scannedProduct.currentStock > 10 ? 'Disponible' : 'Stock Bajo'}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Precio Unitario</p>
-                <p className="text-xl font-bold">{formatCurrency(Number(scannedProduct.salePrice))}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Detalles de Venta</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="quantity">Cantidad</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuantityChange(quantity - 1)}
-                    disabled={quantity <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => handleQuantityChange(Number(e.target.value))}
-                    className="text-center"
-                    min="1"
-                    max={scannedProduct.currentStock}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuantityChange(quantity + 1)}
-                    disabled={quantity >= scannedProduct.currentStock}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {saleAmounts && (
-                <div className="space-y-2 pt-4 border-t">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(saleAmounts.subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>IVA ({scannedProduct.taxRate}%):</span>
-                    <span>{formatCurrency(saleAmounts.taxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold border-t pt-2">
-                    <span>Total:</span>
-                    <span>{formatCurrency(saleAmounts.total)}</span>
-                  </div>
-                </div>
-              )}
-
-              <Button 
-                onClick={handleProcessSale} 
-                disabled={isProcessing || quantity > scannedProduct.currentStock}
-                className="w-full"
-                size="lg"
-              >
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                {isProcessing ? 'Procesando...' : 'Procesar Venta'}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Scanner Section */}
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <QrCode className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Escanea un producto para vender</h3>
-            <p className="text-muted-foreground text-center mb-6">
-              Usa el escáner para seleccionar el producto que deseas vender
-            </p>
-            <Button onClick={() => setIsScannerOpen(true)} size="lg">
-              <QrCode className="mr-2 h-5 w-5" />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
               Escanear Producto
-            </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isScanning ? (
+              <Button onClick={startScanning} className="w-full" size="lg">
+                <Camera className="mr-2 h-5 w-5" />
+                Iniciar Escáner
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                <video
+                  ref={videoRef}
+                  className="w-full h-64 bg-black rounded-lg"
+                  autoPlay
+                  playsInline
+                />
+                <Button onClick={stopScanning} variant="outline" className="w-full">
+                  Detener Escáner
+                </Button>
+              </div>
+            )}
+
+            {loading && (
+              <div className="text-center py-4">
+                <p>Buscando producto...</p>
+              </div>
+            )}
+
+            {scannedProduct && (
+              <div className="space-y-4 p-4 border rounded-lg bg-green-50">
+                <div>
+                  <h3 className="font-semibold">{scannedProduct.title}</h3>
+                  <p className="text-sm text-muted-foreground">{scannedProduct.name}</p>
+                  <p className="text-sm">Código: {scannedProduct.barcode}</p>
+                  <p className="text-sm">Stock disponible: {scannedProduct.currentStock}</p>
+                  <p className="text-lg font-bold text-green-600">€{Number(scannedProduct.salePrice).toFixed(2)}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Cantidad a vender</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-20 text-center"
+                      min="1"
+                      max={scannedProduct.currentStock}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(Math.min(scannedProduct.currentStock, quantity + 1))}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Subtotal: €{(quantity * Number(scannedProduct.salePrice)).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleAddToSale} className="flex-1">
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Agregar a Venta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setScannedProduct(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
 
-      <ScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={handleScanSuccess}
-        title="Escanear para Venta"
-      />
+        {/* Sale Items Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Productos en Venta ({saleItems.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {saleItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="mx-auto h-12 w-12 mb-4" />
+                <p>No hay productos en la venta</p>
+                <p className="text-sm">Escanea un código para comenzar</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {saleItems.map((item) => (
+                  <div key={item.product.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.product.title}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        €{Number(item.product.salePrice).toFixed(2)} x {item.quantity}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-8 text-center">{item.quantity}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRemoveItem(item.product.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="ml-4 text-right">
+                      <p className="font-bold">€{item.subtotal.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-lg font-semibold">Total:</span>
+                    <span className="text-2xl font-bold text-green-600">€{total.toFixed(2)}</span>
+                  </div>
+                  <Button
+                    onClick={handleCompleteSale}
+                    disabled={loading}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {loading ? 'Procesando...' : 'Completar Venta'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

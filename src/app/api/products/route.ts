@@ -9,20 +9,30 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const search = searchParams.get('search') || ''
+    const categoryId = searchParams.get('categoryId')
+    const supplierId = searchParams.get('supplierId')
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = searchParams.get('sortOrder') || 'desc'
 
     const skip = (page - 1) * limit
 
-    const where = search
-      ? {
-          OR: [
-            { barcode: { contains: search, mode: 'insensitive' as const } },
-            { title: { contains: search, mode: 'insensitive' as const } },
-            { name: { contains: search, mode: 'insensitive' as const } },
-          ],
-        }
-      : {}
+    const where: any = {}
+    
+    if (search) {
+      where.OR = [
+        { barcode: { contains: search, mode: 'insensitive' as const } },
+        { title: { contains: search, mode: 'insensitive' as const } },
+        { name: { contains: search, mode: 'insensitive' as const } },
+      ]
+    }
+    
+    if (categoryId) {
+      where.categoryId = categoryId
+    }
+    
+    if (supplierId) {
+      where.supplierId = supplierId
+    }
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
@@ -30,6 +40,20 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+            }
+          },
+          supplier: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
       }),
       prisma.product.count({ where }),
     ])
@@ -74,11 +98,14 @@ export async function POST(request: NextRequest) {
           barcode: validatedData.barcode,
           title: validatedData.title,
           name: validatedData.name,
+          description: validatedData.description || null,
           costPrice: validatedData.costPrice,
           salePrice: validatedData.salePrice,
           taxRate: validatedData.taxRate,
           currentStock: validatedData.currentStock,
           minStock: validatedData.minStock,
+          categoryId: validatedData.categoryId || null,
+          supplierId: validatedData.supplierId || null,
         },
       })
 

@@ -8,6 +8,12 @@ Una aplicación web progresiva (PWA) completa para gestión de inventario median
 - 🏪 **Gestión de Inventario**: Registro automático de productos y control de stock
 - 💰 **Punto de Venta**: Procesamiento de ventas con cálculos automáticos de IVA
 - 📊 **Dashboard en Tiempo Real**: Métricas de inventario, ventas y alertas de stock bajo
+- 📈 **Sistema de Reportes**: Reportes de 24h, 7 días, mensual y completo con impresión
+- 🏷️ **Gestión de Categorías**: Organización de productos por categorías
+- 🏢 **Gestión de Proveedores**: Control de proveedores y relaciones
+- ➕ **Agregar Stock**: Funcionalidad para incrementar stock con historial
+- 🗑️ **Eliminación Segura**: Borrado de productos, categorías y proveedores
+- 🧭 **Navegación Avanzada**: Navbar completo con breadcrumbs
 - 📱 **PWA**: Instalable en dispositivos móviles con funcionalidad offline
 - 🔄 **Historial Completo**: Seguimiento de todos los movimientos de inventario
 

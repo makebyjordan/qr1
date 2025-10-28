@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -17,27 +17,60 @@ enum StockMovementType {
   ADJUSTMENT
 }
 
+// Category model
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  products Product[]
+}
+
+// Supplier model
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  email       String?
+  phone       String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  products Product[]
+}
+
 // Product model
 model Product {
   id           String   @id @default(cuid())
   barcode      String   @unique
   title        String
   name         String
-  costPrice    Decimal  @db.Decimal(10, 2)
-  salePrice    Decimal  @db.Decimal(10, 2)
-  taxRate      Decimal  @db.Decimal(5, 2)
+  description  String?
+  costPrice    Decimal
+  salePrice    Decimal
+  taxRate      Decimal
   currentStock Int      @default(0)
   minStock     Int      @default(10)
+  categoryId   String?
+  supplierId   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   // Relations
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
   stockMovements StockMovement[]
   sales          Sale[]
 
   // Indexes
   @@index([barcode])
   @@index([currentStock])
+  @@index([categoryId])
+  @@index([supplierId])
 }
 
 // Stock movement model for tracking inventory changes
@@ -46,8 +79,8 @@ model StockMovement {
   productId  String
   type       StockMovementType
   quantity   Int
-  unitPrice  Decimal           @db.Decimal(10, 2)
-  totalValue Decimal           @db.Decimal(10, 2)
+  unitPrice  Decimal
+  totalValue Decimal
   notes      String?
   createdAt  DateTime          @default(now())
   createdBy  String?
@@ -65,10 +98,10 @@ model Sale {
   id        String   @id @default(cuid())
   productId String
   quantity  Int
-  unitPrice Decimal  @db.Decimal(10, 2)
-  subtotal  Decimal  @db.Decimal(10, 2)
-  taxAmount Decimal  @db.Decimal(10, 2)
-  total     Decimal  @db.Decimal(10, 2)
+  unitPrice Decimal
+  subtotal  Decimal
+  taxAmount Decimal
+  total     Decimal
   createdAt DateTime @default(now())
 
   // Relations
