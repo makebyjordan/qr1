@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "NEXT_PUBLIC_APP_NAME": "Sistema de Inventario",
+    "NEXT_PUBLIC_BASE_URL": "@base_url"
+  }
+}
